@@ -1,0 +1,409 @@
+from datetime import datetime, date
+from time import sleep
+from os import system
+import sys
+import pyrebase
+
+config = {
+    "apiKey": "apiKey",
+    "authDomain": "messenger-by-jaskirat-default-rtdb.firebaseapp.com",
+    "databaseURL": "https://messenger-by-jaskirat-default-rtdb.firebaseio.com",
+    "storageBucket": "messenger-by-jaskirat-default-rtdb.appspot.com"
+}
+
+firebase = pyrebase.initialize_app(config)
+db = firebase.database()
+now = datetime.now()
+current_time = now.strftime("%H:%M")
+today = date.today()
+
+
+def clear():
+    system('cls')
+
+
+def start_function(flag='y'):
+    clear()
+    while flag == 'y':
+        try:
+            default_db_setup()
+            print(" ")
+            ch = int(input("""Welcome to Messenger.
+                    1. Sign Up 
+                    2. Log In
+                    3. Quit
+                 Choice : (1 / 2 / 3) -> """))
+            if 1 <= ch <= 3:
+                if ch == 1:
+                    sign_up()
+                if ch == 2:
+                    log_in()
+                if ch == 3:
+                    print(" ")
+                    print("Exiting the program....")
+                    sys.exit()
+            else:
+                print("Wrong choice:")
+                continue
+        except ValueError:
+            print("Wrong choice:")
+            continue
+
+
+def default_db_setup():
+    # starting with empty database
+    if db.get().val() is None:
+        member_db = {"default_id": {"default_pass": "default_name"}}
+        chat_db = {"default_r_name": {"default_s_name": {"default_date": {"default_time": "default_msg"}}}}
+        c_time_db = {"Current Time": "time"}
+        c_day_db = {"Current Day": "day"}
+        la_time_db = {"Last Access": "time"}
+        la_day_db = {"Last Access Day": "day"}
+        db.child("Members").update(member_db)
+        db.child("Chats").update(chat_db)
+        db.child("Access Time").child("member_name").update(c_time_db)
+        db.child("Access Time").child("member_name").update(c_day_db)
+        db.child("Access Time").child("member_name").update(la_time_db)
+        db.child("Access Time").child("member_name").update(la_day_db)
+
+
+def sign_up():
+    clear()
+    user_name = input("Enter your name: ").capitalize()
+    user_id = input("Enter your username: ")
+    a = 0
+    while a == 0:
+        if user_id not in list(db.child("Members").get().val()):
+            a = 1
+            en_pass = input("Enter a new Password: ")
+            check = check_password(en_pass, user_id)
+            while check != 0:
+                while check == -1:
+                    print("Error! Password cannot contain the username: ")
+                    en_pass = input("Enter a new Password: ")
+                    check = check_password(en_pass, user_id)
+                if check == -2:
+                    en_pass = input("Enter a new Password: ")
+                    check = check_password(en_pass, user_id)
+                if check == -3:
+                    en_pass = input("Enter a new Password: ")
+                    check = check_password(en_pass, user_id)
+            data = {en_pass: user_name}
+            db.child("Members").child(user_id).set(data)
+            add_access_day_time(user_name)
+            update_day_time(user_name)
+        else:
+            print("This username is already in use.")
+            print("Please Log in!..")
+            log_in()
+        if user_id in list(db.child("Members").get().val()):
+            print("Your username was added to the messenger.")
+    messenger(user_name)
+
+
+def check_password(password, username):
+    while username.lower() in password.lower():
+        return -1
+    l_case, u_case, digit, spec = 0, 0, 0, 0
+    if len(password) >= 8:
+        for x in password:
+            if x.islower():
+                l_case += 1
+            if x.isupper():
+                u_case += 1
+            if x.isdigit():
+                digit += 1
+            if x == '@' or x == '_' or x == '&':
+                spec += 1
+    else:
+        print("Password must be more than 8 characters")
+        return -2
+
+    if l_case >= 1 and u_case >= 1 and digit >= 1:
+        return 0
+    else:
+        print("Password must contain Upper case, Lower case and digits."
+              " Special characters can only be '_', '@' or '&'")
+        return -3
+
+
+def list_to_string(s):
+    str1 = ""
+    return str1.join(s)
+
+
+def log_in():
+    clear()
+    members = db.child("Members").get().val()
+    b = 0
+    d = 0
+    while b == 0:
+        user = input("Enter your Username: ")
+        if user in list(db.child("Members").get().val()):
+            b = 1
+            while d == 0:
+                password = input("Enter your Password: ")
+                db_pass = list_to_string(list(members[user].keys()))
+                if db_pass == password:
+                    d = 1
+                    print("Welcome " + members[user][password] + " !")
+                    messenger(members[user][password])
+                else:
+                    d = 0
+                    print("Wrong password . Try again...")
+
+        elif input("Did you enter the correct username? (y/n) ") == 'y':
+            print("Username does not exist!")
+            print("Please Sign Up ")
+            sign_up()
+        else:
+            b = 0
+            continue
+
+
+def messenger(user_name):
+    clear()
+    ch = int(input("""\nWould you like to :-
+            1. Send message 
+            2. Receive message
+            3. Log Out
+         Choice : (1 / 2 / 3) -> """))
+    if 1 <= ch <= 3:
+        if ch == 1:
+            send_msg(user_name)
+        if ch == 2:
+            receive_msg(user_name)
+        if ch == 3:
+            start_function('y')
+
+
+def send_msg(user_name):
+    clear()
+    members = db.child("Members").get().val()
+    flag = 'y'
+    send_now = datetime.now()
+    current_time_send = send_now.strftime("%H:%M")
+    receiver_name = input("\nEnter the name of the receiver: ").capitalize()
+    while flag == 'y':
+        for user in list(db.child("Members").get().val()):
+            db_pass = list_to_string(list(members[user].keys()))
+            if members[user][db_pass] == receiver_name:
+                if receiver_name not in list(db.child("Chats").get().val()):
+                    message = input("Enter Your Message: ")
+                    data = {current_time_send: message}
+                    db.child("Chats").child(receiver_name).child(user_name).child(today).update(data)
+                    print("Sending Message-> " + message + " to " + receiver_name)
+                    sleep(5)
+                else:
+                    message = input("Enter Your Message: ")
+                    data = {current_time: message}
+                    db.child("Chats").child(receiver_name).child(user_name).child(today).update(data)
+                    print("Sending Message-> " + message + " to " + receiver_name)
+                    sleep(5)
+                flag = input("Continue chat? (y/n) ")
+                if flag == 'n':
+                    if input("Chat with another user?(y/n) ") == 'y':
+                        send_msg(user_name)
+                    print("\nMoving to previous Window....")
+                    messenger(user_name)
+        if input("Did you enter the correct Name? (y/n) ") == 'y':
+            print(receiver_name + " does not have an account ")
+            print("\nMoving to previous Window....")
+            messenger(user_name)
+        else:
+            flag = 'n'
+            print("User not found!")
+            print("\nMoving to previous Window....")
+            messenger(user_name)
+
+
+def receive_msg(user_name):
+    clear()
+    last_access = db.child("Access Time").child(user_name).child("Last Access").get().val()
+    last_access_day = db.child("Access Time").child(user_name).child("Last Access Day").get().val()
+    update_day_time(user_name)
+    dict_var = {}
+    try:
+        all_msgs = db.child("Chats").child(user_name).get()
+        for chats in all_msgs.each():
+            count = 0
+            message = chats.val()
+            for Date in message:
+                if Date >= last_access_day:
+                    for Time in message[Date]:
+                        if Time >= last_access:
+                            count += 1
+                            print(chats.key())
+            if count != 0:
+                if chats.key() not in dict_var:
+                    dict_var[chats.key()]= str(count)
+                else:
+                    dict_var[chats.key()].update(str(count))
+        for x in dict_var:
+            print("\nYou have " + dict_var[x] + " new Message(s) from " + x)
+            if input("\nShow recent messages?(y/n)  ") == 'y':
+                show_recent_msg(user_name, x, last_access_day, last_access)
+        if input("Show all chats? (y/n)") == 'y':
+            show_all_chats(user_name)
+        sleep(1)
+        receive_exit_choice(user_name)
+    except TypeError:
+        print("No messages in your Inbox")
+        print("\nMoving to previous Window....")
+        sleep(1)
+        messenger(user_name)
+#    except KeyError:
+#        print("No messages in your Inbox!")
+#        sleep(1)
+#        print("\nMoving to previous Window....")
+#        messenger(user_name)
+
+
+def show_all_chats(user_name):
+    clear()
+    message = db.child("Chats").child(user_name).get().val()
+    for Sender_name in message:
+        for Date in message[Sender_name]:
+            for Time in message[Sender_name][Date]:
+                print("\nMessages by " + Sender_name)
+                print("Received on-> " + Date)
+                print("At " + str(Time) + " -> " + message[Sender_name][Date][Time])
+    return
+
+
+def show_recent_msg(user_name, read_msg_from, last_access_day, last_access):
+    clear()
+    message = db.child("Chats").child(user_name).child(read_msg_from).get().val()
+    for Date in message:
+        for Time in message[Date]:
+            if Time >= last_access and Date >= last_access_day:
+                print("\nMessage received on-> " + Date)
+                print("At " + str(Time) + " -> " + message[Date][Time])
+    if input("\nShow previous messages from " + read_msg_from + " ?(y/n) ") == 'y':
+        show_previous_msg(user_name, read_msg_from, last_access_day, last_access)
+    else:
+        return
+
+
+def show_previous_msg(user_name, read_msg_from, last_access_day, last_access):
+    clear()
+    message = db.child("Chats").child(user_name).child(read_msg_from).get().val()
+    for Date in message:
+        for Time in message[Date]:
+            if Time < last_access and Date < last_access_day:
+                print("\nMessage received on-> " + Date)
+                print("At " + str(Time) + " -> " + message[Date][Time])
+    receive_exit_choice(user_name)
+
+
+def add_access_day_time(user_name):
+    current_time_add = datetime.now().strftime("%H:%M")
+    update_time = {"Last Access": current_time_add}
+    db.child("Access Time").child(user_name).update(update_time)
+    update_day = {"Last Access Day": str(today)}
+    db.child("Access Time").child(user_name).update(update_day)
+
+
+def update_day_time(user_name):
+    current_time_receive = datetime.now().strftime("%H:%M")
+    update_time = {"Current Time": current_time_receive}
+    db.child("Access Time").child(user_name).update(update_time)
+    update_day = {"Current Day": str(today)}
+    db.child("Access Time").child(user_name).update(update_day)
+
+
+def receive_exit_choice(user_name):
+    ch = int(input("""\nWould you like to:-
+        1. Reply ?
+        2. Move to previous Window?
+        Choice : (1 / 2) -> """))
+    if 1 <= ch <= 2:
+        if ch == 1:
+            time = {"Last Access": datetime.now().strftime("%H:%M")}
+            db.child("Access Time").child(user_name).update(time)
+            send_msg(user_name)
+        if ch == 2:
+            time = {"Last Access": datetime.now().strftime("%H:%M")}
+            db.child("Access Time").child(user_name).update(time)
+            messenger(user_name)
+
+
+print("Connecting to Database....")
+sleep(2)
+print("Connected!")
+print("Loading Main Screen....")
+sleep(3)
+start_function()
+
+# Output :-
+# Connecting to Database....
+# Connected!
+# Loading Main Screen....
+#
+# Welcome to Messenger.
+#                     1. Sign Up
+#                     2. Log In
+#                     3. Quit
+#                  Choice : (1 / 2 / 3) -> 1
+# Enter your name: Jaskirat
+# Enter your username: jaskirat_bhalla
+# Enter a new Password: Alpha1234
+# Your username was added to the messenger.
+#
+# Would you like to :-
+#             1. Send message
+#             2. Receive message
+#             3. Log Out
+#          Choice : (1 / 2 / 3) -> 2
+# You have 1 new Message(s) from Anshul
+#
+# Show recent messages?(y/n)  y
+#
+# Message received on-> 2021-03-01
+# At 19:23 -> Can I borrow your Book?
+#
+# Show previous messages from Anshul ?(y/n) n
+#
+# You have 1 new Message(s) from Riya bansal
+#
+# Show recent messages?(y/n)  y
+#
+# Message received on-> 2021-03-01
+# At 19:20 -> Is it a holiday tomorrow?
+#
+# Show previous messages from Riya bansal ?(y/n) n
+# Show all chats? (y/n)y
+#
+# Messages by Anshul
+# Received on-> 2021-03-01
+# At 19:23 -> Can I borrow your Book?
+#
+# Messages by Riya bansal
+# Received on-> 2021-03-01
+# At 19:20 -> Is it a holiday tomorrow?
+#
+# Would you like to:-
+#         1. Reply ?
+#         2. Move to previous Window?
+#         Choice : (1 / 2) -> 1
+#
+# Enter the name of the receiver: Anshul
+# Enter Your Message: Ok Sure!
+# Sending Message-> Ok Sure! to Anshul
+# Continue chat? (y/n) n
+#
+# Moving to previous Window....
+#
+# Would you like to :-
+#             1. Send message
+#             2. Receive message
+#             3. Log Out
+#          Choice : (1 / 2 / 3) -> 3
+#
+# Welcome to Messenger.
+#                     1. Sign Up
+#                     2. Log In
+#                     3. Quit
+#                  Choice : (1 / 2 / 3) -> 3
+#
+# Exiting the program....
